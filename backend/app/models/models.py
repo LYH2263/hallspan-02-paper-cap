@@ -1,5 +1,5 @@
 from datetime import datetime
-from sqlalchemy import DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 from app.database import Base
 
@@ -17,6 +17,12 @@ class PaperSet(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     code: Mapped[str] = mapped_column(String(32), unique=True)
     title: Mapped[str] = mapped_column(String(128))
+    # 同一试卷套排座人数上限；0 表示不截断
+    max_count: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    # 主卷套已座人数下限；0 表示关闭保底
+    min_count: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    # 是否为主卷套；仅主卷套参与下限保底
+    is_primary: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
 
 class Candidate(Base):
     __tablename__ = "candidates"
