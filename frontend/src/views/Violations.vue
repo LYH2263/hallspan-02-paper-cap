@@ -3,14 +3,18 @@ import { onMounted, ref } from 'vue'
 import { api } from '../api'
 const viols = ref<any[]>([])
 const unplaced = ref<any[]>([])
+const error = ref('')
 onMounted(async () => {
-  const res = await api('/seating/violations?hall_id=1')
-  viols.value = res.violations; unplaced.value = res.unplaced
+  try {
+    const res = await api('/seating/violations?hall_id=1')
+    viols.value = res.violations; unplaced.value = res.unplaced
+  } catch (e: any) { error.value = e.message }
 })
 </script>
 <template>
   <h1>违规</h1>
   <p class="sub">间距不足或同试卷四邻相邻</p>
+  <p v-if="error" style="color:#a33">{{ error }}</p>
   <div class="card">
     <table>
       <thead><tr><th>类型</th><th>考生A</th><th>考生B</th><th>说明</th></tr></thead>
@@ -24,6 +28,6 @@ onMounted(async () => {
   </div>
   <div class="card" v-if="unplaced.length">
     <h3>未排上</h3>
-    <div v-for="u in unplaced" :key="u.id">{{ u.name }}（{{ u.ticket_no }}）</div>
+    <div v-for="u in unplaced" :key="u.id">{{ u.name }}（{{ u.ticket_no }}）· {{ u.reason }}</div>
   </div>
 </template>

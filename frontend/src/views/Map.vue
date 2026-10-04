@@ -3,9 +3,18 @@ import { computed, onMounted, ref } from 'vue'
 import { api } from '../api'
 const data = ref<any>(null)
 const candidates = ref<any[]>([])
+const papers = ref<any[]>([])
 const violKeys = ref<Set<string>>(new Set())
+const error = ref('')
 async function run() {
-  data.value = await api('/seating/run?hall_id=1', { method: 'POST' })
+  error.value = ''
+  try {
+    data.value = await api('/seating/run?hall_id=1', { method: 'POST' })
+  } catch (e: any) {
+    data.value = null // 整场失败不出图, 不留旧图
+    error.value = e.message // 主卷人数不足等整场失败
+    return
+  }
   try {
     const v = await api('/seating/violations?hall_id=1')
     const keys = new Set<string>()
@@ -18,6 +27,7 @@ async function run() {
 }
 onMounted(async () => {
   candidates.value = await api('/candidates')
+  papers.value = await api('/papers')
   await run()
 })
 const gridStyle = computed(() => data.value ? ({ gridTemplateColumns: `repeat(${data.value.cols}, 72px)` }) : {})
@@ -33,6 +43,14 @@ const cells = computed(() => {
   }
   return out
 })
+const paperDist = computed(() => {
+  // 排座图套卷分布: 与统计页同源, 均取最新方案的 stats.per_paper
+  const per = data.value?.stats?.per_paper || {}
+  return papers.value
+    .filter(p => per[String(p.id)])
+    .map(p => ({ code: p.code, seated: per[String(p.id)].seated, unplaced: per[String(p.id)].unplaced }))
+})
+const unplacedList = computed(() => data.value?.unplaced || [])
 function isViol(cell: any) {
   if (cell.empty) return false
   const id = cell.candidate_id ?? cell.id
@@ -46,6 +64,10 @@ function paperClass(pid: number) {
   <h1>考场课桌网格</h1>
   <p class="sub">课桌网格为主视图 · 左侧考生名册夹板 · 违规课桌高亮</p>
   <button class="btn" @click="run">重新排座</button>
+  <span v-if="paperDist.length" class="muted" style="margin-left:0.75rem;font-size:0.85rem">
+    套卷分布：<span v-for="d in paperDist" :key="d.code" style="margin-right:0.6rem">{{ d.code }} {{ d.seated }} 人<template v-if="d.unplaced">（未排 {{ d.unplaced }}）</template></span>
+  </span>
+  <p v-if="error" style="color:#a33">{{ error }}</p>
   <div class="hs-classroom" style="margin-top:0.85rem">
     <aside class="hs-clipboard">
       <h2>考生名册</h2>
@@ -72,5 +94,9 @@ function paperClass(pid: number) {
         </div>
       </div>
     </div>
+  </div>
+  <div class="card" v-if="unplacedList.length" style="margin-top:0.85rem">
+    <h3>未排上</h3>
+    <div v-for="u in unplacedList" :key="u.id">{{ u.name }}（{{ u.ticket_no }}）· 卷{{ u.paper_id }} · {{ u.reason }}</div>
   </div>
 </template>
